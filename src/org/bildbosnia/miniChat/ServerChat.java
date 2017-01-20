@@ -91,6 +91,7 @@ public class ServerChat {
 	}
 }
 
+//klasa sa read sa korisnicima
 class HandleClient implements Runnable {
 	
 	String name;
@@ -102,43 +103,53 @@ class HandleClient implements Runnable {
 	public HandleClient(Socket socket) {
 		this.socket = socket;
 	}
-	
+
 	@Override
 	public void run() {
 
 		try {
 			String message = "";
+			//stream za primanje i slanje poruka
 			fromClient = new DataInputStream(socket.getInputStream());
 			toClient = new DataOutputStream(socket.getOutputStream());
 			
-			toClient.writeUTF("Unesite ime(ili GUEST): ");
+			//login, ako zeli biti anonimus razlikuju se po brojeima GUEST1, GUEST2...
+			//to nam treba jer je ime kljuc u mapi u kojoj su svi ulogovani korisnici
+			toClient.writeUTF("Unesite ime (ili GUEST): ");
 			message = fromClient.readUTF();
 			if (message.equals("GUEST")) {
 				name = message+""+(++ServerChat.counter);
 			}
 			else {
+				//ako je ulogovan korisnik sa istim nickom javlja poruku dok ne izabere unique ime
 				while (ServerChat.usersIn.containsKey(message)) {
 					toClient.writeUTF("Korisnicko ime zauzeto. Izaberite drugo ime.");
 					message = fromClient.readUTF();
 				}
 				name = message;
+				//ako ime vec nije "registrovano dodati ga u listu sa reg. imenima i snimiti u fajl"
 				if (!ServerChat.clients.contains(name)) {
 					ServerChat.clients.add(name);
 					ServerChat.saveUser(name);
 				}
 			}
+			//utrpati korisnika u mapu sa ulogovanim
 			ServerChat.usersIn.put(name, this);
 			message = name + " dobrodosao/la u chat. Ako zelite da se odlgujete ukucajte LOGOUT";
 			toClient.writeUTF(message);
 			
 			message = "Korisnik "+name + " se ulogovao";
-
+			//salje svim ulogovanim korisnicima poruku da se doticni ulogovao
 			Set<Map.Entry<String,HandleClient>> entrySet = ServerChat.usersIn.entrySet();
 			for (Map.Entry<String,HandleClient> entry: entrySet) {
 				if(entry.getValue() != this)
 					entry.getValue().toClient.writeUTF(message);
 			}
-				
+			/*
+			 * razmjena poruka
+			 * ako je poruka LOGOUT izbaci ga iz ulogovanih
+			 * .close() sve stp treba i uslov za petlju na false	
+			 */
 			while(active) {
 				message = fromClient.readUTF();
 				if (message.equals("LOGOUT")) {
@@ -153,6 +164,7 @@ class HandleClient implements Runnable {
 				else {
 					message = name +": "+ message;
 				}
+				//ostale korisnike obavjesti da je doticni napustio chat
 				for (Map.Entry<String,HandleClient> entry: entrySet) {
 					if(entry.getValue() != this)
 						entry.getValue().toClient.writeUTF(message);
