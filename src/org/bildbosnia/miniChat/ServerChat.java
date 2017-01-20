@@ -4,10 +4,12 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
@@ -18,24 +20,53 @@ import java.util.Set;
 public class ServerChat {
 	
 	private static final int PORT = 3000; 
+	//sva imena klijenata koja su registrovana, registracije nije detaljna, samo pamti ime, onako radi reda odradjeno :)
 	static ArrayList<String> clients = new ArrayList<>();
 	static String filePath = "clients.txt";
+	/*
+	 * mapa sa svim ulovovanim ljudima
+	 * sluzi da se ne mogu u jednom trenutku ulogovati dva korisnika sa istim nickom
+	 * ujedno sadrzi i sve thradove i na osnovu nje saljemo svim korisnicima poruke
+	 */
 	static Map<String,HandleClient> usersIn = new HashMap<>();
+	//brojac anonimusa, da  bi se mogli spremiti u mapu ulogovanih
 	static int counter = 0;
 	
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) {
 		
-		ServerSocket server = new ServerSocket(PORT);
-		System.out.println("Chat server pokrenut");
+		ServerSocket server = null;
+		try {
+			server = new ServerSocket(PORT);
+			System.out.println("Chat server pokrenut");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
 		loadUsers();
 		
 		while(true) {
-			Socket socket = server.accept();
-			new Thread(new HandleClient(socket)).start();
+			try {
+				Socket socket = server.accept();
+				new Thread(new HandleClient(socket)).start();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 	
+	/**
+	 * ucitava sva registrovana imena iz fajla u listu
+	 */
 	public static void loadUsers() {
+		
+		if (!Files.exists(Paths.get(filePath), LinkOption.NOFOLLOW_LINKS)) {
+			try {
+				Files.createFile(Paths.get(filePath));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		
 		try (BufferedReader br = Files.newBufferedReader(Paths.get(filePath),StandardCharsets.UTF_8)) {
 			String line;
 			while ((line = br.readLine()) != null) {
@@ -45,6 +76,10 @@ public class ServerChat {
 			e.printStackTrace();
 		}
 	}
+	
+	/**
+	 * dodaje novo ime u fajl
+	 */
 	public static void saveUser(String name) {
 		
 		try (BufferedWriter bw = Files.newBufferedWriter(Paths.get(filePath),StandardCharsets.UTF_8,StandardOpenOption.APPEND)){
@@ -93,7 +128,7 @@ class HandleClient implements Runnable {
 				}
 			}
 			ServerChat.usersIn.put(name, this);
-			message = name + " dobrodosao u chat. Ako zelite da se odlgujete ukucajte LOGOUT";
+			message = name + " dobrodosao/la u chat. Ako zelite da se odlgujete ukucajte LOGOUT";
 			toClient.writeUTF(message);
 			
 			message = "Korisnik "+name + " se ulogovao";

@@ -6,23 +6,23 @@ import java.net.Socket;
 import java.util.Scanner;
 
 public class ClientChat {
+	
 	static Socket socket = null;
 	static boolean active = true;
-	DataOutputStream toServer;
-	DataInputStream fromServer;
-	
+	static DataOutputStream toServer;
+	DataInputStream fromServer;	
 
 	public static void main(String[] args) throws Exception {
 		
 		int port = 3000;
-	
+		
 		Socket socket = new Socket("localhost", port);
 		DataOutputStream toServer = new DataOutputStream(socket.getOutputStream());
 		
 		Scanner input = new Scanner(System.in);
 		String message;
-		
-		new Thread(new InputListener(socket)).start();
+
+		new Thread(new InputListener(socket)).start();			
 		while(active) {
 			message = input.nextLine();
 			if (message.equals("LOGOUT")) {
@@ -31,10 +31,10 @@ public class ClientChat {
 			}
 			toServer.writeUTF(message);			
 		}
-		input.close();
+		input.close();	
 	}
-	
 }
+	
 class InputListener implements Runnable{
 	 
 	Socket socket;
